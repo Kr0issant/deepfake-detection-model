@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+import torch
 from torch.utils.data import Dataset, DataLoader
 import csv, cv2, os
 
@@ -33,6 +34,7 @@ class DF_Dataset(Dataset):
         return self.get_image(index)
     
     def get_image(self, index):
+        label = int(self.data[index]["label"])
         label = int(self.data[index]["label"])
 
         img = cv2.imread(os.path.join(self.dataset_path, self.data[index]["path"]).replace("\\", "/"))

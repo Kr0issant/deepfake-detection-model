@@ -118,33 +118,3 @@ def variable_length_collate(batch):
     masks_padded = pad_sequence(masks, batch_first=True, padding_value=-1)
     
     return videos_padded, masks_padded
-
-
-if __name__ == "__main__":
-    BATCH_SIZE = 8
-    EPOCH_SIZE = 400
-    NUM_EPOCHS = 32
-
-    import os
-    from dotenv import load_dotenv
-    load_dotenv()
-    VID_DATASET_PATH = os.getenv("VID_DATASET_PATH")
-
-    ds = DF_Dataset(VID_DATASET_PATH, EPOCH_SIZE, training=True)
-
-    import multiprocessing
-    multiprocessing.set_start_method("spawn", force=True)
-
-    import time
-    from vid_classifier import VID_Classifier
-    classifier = VID_Classifier(256, 3)
-
-    loader = DataLoader(ds, batch_size=BATCH_SIZE, shuffle=True, num_workers=8, collate_fn=variable_length_collate, persistent_workers=True)
-    # Training Loop
-    for i in range(NUM_EPOCHS):
-        e = time.perf_counter()
-        for batch_idx, (videos, labels) in enumerate(loader):
-            videos = videos.float() / 255.0
-            classifier.forward(videos)
-            print("Batch processed.")
-        print(f"Epoch - {i + 1} completed in {round(time.perf_counter() - e, 2)}s.")
