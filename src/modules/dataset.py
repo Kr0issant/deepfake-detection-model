@@ -5,6 +5,9 @@ from torch.nn.utils.rnn import pad_sequence
 import cv2, json, random
 import face_detector
 
+from pathlib import Path
+src_path = Path(__file__).resolve().parent.parent
+
 class DF_Dataset(Dataset):
     def __init__(self, dataset_path: str = ".", epoch_size: int = 400, training: bool = True):
         self.dataset_path = dataset_path
@@ -12,10 +15,10 @@ class DF_Dataset(Dataset):
         self.training = training
 
         if training:
-            with open("../data/train.json", "r") as f:
+            with open(str(src_path / "data/train.json"), "r") as f:
                 self.data = json.load(f)
         else:
-            with open("../data/test.json", "r") as f:
+            with open(str(src_path / "data/test.json"), "r") as f:
                 self.data = json.load(f)
 
     def __len__(self):
@@ -112,10 +115,9 @@ def variable_length_collate(batch):
     videos, masks = zip(*batch)
     videos = [v.permute(1, 0, 2, 3) for v in videos] 
     videos_padded = pad_sequence(videos, batch_first=True, padding_value=0)
-    videos_padded = videos_padded.permute(0, 2, 1, 3, 4)
     masks_padded = pad_sequence(masks, batch_first=True, padding_value=-1)
     
-    return videos_padded, masks_padded
+    return videos_padded, masks
 
 
 if __name__ == "__main__":

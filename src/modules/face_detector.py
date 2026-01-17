@@ -3,11 +3,13 @@ import mediapipe as mp
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 
-model_path = "../models/face-detector/blaze_face_short_range.tflite"
+from pathlib import Path
+src_path = Path(__file__).resolve().parent.parent
+model_path = str(src_path / "models" / "face-detector" / "blaze_face_short_range.tflite")
 
 base_options = python.BaseOptions(
     model_asset_path=model_path,
-    delegate=python.BaseOptions.Delegate.GPU
+    # delegate=python.BaseOptions.Delegate.GPU
 )
 
 options = vision.FaceDetectorOptions(base_options=base_options)
