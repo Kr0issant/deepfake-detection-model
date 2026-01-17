@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn   
-from analysis_modules import *
+# from analysis_modules import *
 import random
 
 class VideoDeepFakeLSTMModel(nn.Module):
@@ -40,7 +40,7 @@ class VideoDeepFakeLSTMModel(nn.Module):
         frequency = frequency.view(b, t, -1)
         
         if self.training:
-            visuals_dropout = random.random() < 0.15
+            visuals_dropout = torch.rand() < 0.15
             if visuals_dropout:
                 visuals = visuals*0.0
 
