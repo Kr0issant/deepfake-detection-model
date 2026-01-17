@@ -22,4 +22,5 @@ dependencies = [
     "tqdm>=4.67.1",
     "jupyter>=1.1.1",
     "ipywidgets>=8.1.8",
+    "streamlit>=1.53.0",
 ]
