@@ -64,8 +64,6 @@ class NetworkProcesses:
             Frame_Difference_Out = Frame_Difference_Out.view(b, t, -1)
             return Frame_Difference_Out
 
-            pass
-
     class HFRINetwork(nn.Module):
         def __init__(self):
             super().__init__()
@@ -89,7 +87,6 @@ class NetworkProcesses:
             final_size = 128*16*16
             self.feed_forward = nn.Linear(final_size, 128)
 
-        pass
         
         def forward(self, input_x):
             input_x = 0.299 * input_x[:, 0:1] + 0.587 * input_x[:, 1:2] + 0.114 * input_x[:, 2:3]
