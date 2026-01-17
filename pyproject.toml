@@ -18,4 +18,5 @@ dependencies = [
     "torchvision>=0.24.1",
     "mediapipe>=0.10.31",
     "opencv-python>=4.12.0.88",
+    "python-dotenv>=1.2.1",
 ]

@@ -7,6 +7,11 @@ import cv2, json, random
 from pathlib import Path
 src_path = Path(__file__).resolve().parent.parent
 
+import os
+from dotenv import load_dotenv
+load_dotenv()
+IMG_DATASET_PATH = os.getenv("IMG_DATASET_PATH")
+
 class DF_Dataset(Dataset):
     def __init__(self, dataset_path: str = ".", epoch_size: int = 400, training: bool = True):
         self.dataset_path = dataset_path
@@ -32,7 +37,7 @@ if __name__ == "__main__":
     EPOCH_SIZE = 400
     NUM_EPOCHS = 32
 
-    ds = DF_Dataset("C:/Users/Krishna/Downloads/face-images-10k", EPOCH_SIZE, training = True)
+    ds = DF_Dataset(IMG_DATASET_PATH, EPOCH_SIZE, training = True)
 
     loader = DataLoader(ds, batch_size=BATCH_SIZE, shuffle=True, num_workers=4)
 
