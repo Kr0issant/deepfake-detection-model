@@ -1,43 +1,55 @@
 import numpy as np
-import torch
 from torch.utils.data import Dataset, DataLoader
-from torch.nn.utils.rnn import pad_sequence
-import cv2, json, random
+import csv, cv2, os
 
 from pathlib import Path
 src_path = Path(__file__).resolve().parent.parent
 
-import os
-from dotenv import load_dotenv
-load_dotenv()
-IMG_DATASET_PATH = os.getenv("IMG_DATASET_PATH")
 
 class DF_Dataset(Dataset):
-    def __init__(self, dataset_path: str = ".", epoch_size: int = 400, training: bool = True):
+    def __init__(self, dataset_path: str = ".", training: bool = True):
         self.dataset_path = dataset_path
-        self.epoch_size = epoch_size
         self.training = training
 
-        if training:
-            with open(str(src_path / "data/img_train.json"), "r") as f:
-                self.data = json.load(f)
-        else:
-            with open(str(src_path / "data/img_test.json"), "r") as f:
-                self.data = json.load(f)
+        self.data = []
 
+        with open(str(src_path / ("data/img_train.csv" if training else "data/img_test.csv")), "r") as f:
+            reader = csv.reader(f)
+            for i, row in enumerate(reader):
+                if i == 0: continue
+                
+                self.data.append({
+                    "path": row[5], 
+                    "label": row[3]
+                })
+
+        self.epoch_size = len(self.data)
+                    
     def __len__(self):
         return self.epoch_size
     
     def __getitem__(self, index):
-        return self.create_video(True)
+        return self.get_image(index)
+    
+    def get_image(self, index):
+        label = self.data[index]["label"]
+
+        img = cv2.imread(os.path.join(self.dataset_path, self.data[index]["path"]).replace("\\", "/"))
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+        img_tensor = np.array(img, dtype=np.uint8)
+        return np.transpose(img_tensor, (2, 0, 1)), label
     
 
 if __name__ == "__main__":
-    BATCH_SIZE = 8
-    EPOCH_SIZE = 400
+    BATCH_SIZE = 16
     NUM_EPOCHS = 32
 
-    ds = DF_Dataset(IMG_DATASET_PATH, EPOCH_SIZE, training = True)
+    from dotenv import load_dotenv
+    load_dotenv()
+    IMG_DATASET_PATH = os.getenv("IMG_DATASET_PATH")
+
+    ds = DF_Dataset(IMG_DATASET_PATH, training = True)
 
     loader = DataLoader(ds, batch_size=BATCH_SIZE, shuffle=True, num_workers=4)
 
@@ -46,6 +58,7 @@ if __name__ == "__main__":
 
     for i in range(NUM_EPOCHS):
         for batch_idx, (images, labels) in enumerate(loader):
+            images = images.float() / 255.0
             classifier.forward(images)
             print("Batch processed.")
         print(f"Epoch - {i} completed.")

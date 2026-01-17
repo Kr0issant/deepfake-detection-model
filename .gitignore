@@ -11,3 +11,4 @@ wheels/
 
 # Private files
 .env
+.vscode
