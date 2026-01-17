@@ -32,20 +32,23 @@ class VID_Classifier(nn.Module):
         
         frame_motion = self.frame_difference_module(x_video)
 
-        x_video_folded = x_video.view(b*t, c, h, w)
+        # CRITICAL FIX: Use .reshape() instead of .view() or call .contiguous()
+        x_video_folded = x_video.reshape(b*t, c, h, w)  # Changed from .view() to .reshape()
         visuals = self.eff_net_module(x_video_folded)
-        visuals = visuals.view(b, t, -1)
-        frequency = self.hfri_module(x_video_folded)
-        frequency = frequency.view(b, t, -1)
-        
-        if self.training:
-            visuals_dropout = torch.rand() < 0.15
-            if visuals_dropout:
-                visuals = visuals*0.0
+        visuals = visuals.reshape(b, t, -1)  # Changed from .view() to .reshape()
 
-        fusion_stack = torch.cat((visuals, frame_motion, frequency),dim=2)
-        lstm_out, new_hidden_state = self.lstm(fusion_stack, hidden_state)
+        # Frequency processing
+        frequency = self.hfri_module(x_video_folded)
+        frequency = frequency.reshape(b, t, -1)  # Changed from .view() to .reshape()
+
+        # Concatenate all features
+        combined = torch.cat([visuals, frequency, frame_motion], dim=2)
+
+        # LSTM processing
+        lstm_out, hidden_state = self.lstm(combined, hidden_state)
+
+        # Final classification
         logits = self.classifier(lstm_out)
-        logits.view(b, t, 1)
-        return logits, new_hidden_state
+
+        return logits, hidden_state
 
