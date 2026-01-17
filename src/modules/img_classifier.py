@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-# from analysis_modules import *
+from src.modules.analysis_modules import *
 
 class IMG_Classifier(nn.Module):
     def __init__(self):

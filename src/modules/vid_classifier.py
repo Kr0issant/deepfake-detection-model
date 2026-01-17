@@ -1,9 +1,8 @@
 import torch
 import torch.nn as nn   
-# from analysis_modules import *
-import random
+from src.modules.analysis_modules import *
 
-class VideoDeepFakeLSTMModel(nn.Module):
+class VID_Classifier(nn.Module):
     def __init__(self, LSTM_hidden_size, num_layers):
         super().__init__()
         self.eff_net_module = NetworkProcesses.StreamA_EfficientNetNetwork()

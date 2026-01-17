@@ -3,7 +3,7 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 from torch.nn.utils.rnn import pad_sequence
 import cv2, json, random
-import face_detector
+import src.modules.face_detector as face_detector
 
 from pathlib import Path
 src_path = Path(__file__).resolve().parent.parent
@@ -136,6 +136,8 @@ if __name__ == "__main__":
     multiprocessing.set_start_method("spawn", force=True)
 
     import time
+    from vid_classifier import VID_Classifier
+    classifier = VID_Classifier(256, 3)
 
     loader = DataLoader(ds, batch_size=BATCH_SIZE, shuffle=True, num_workers=8, collate_fn=variable_length_collate, persistent_workers=True)
     # Training Loop
@@ -143,5 +145,6 @@ if __name__ == "__main__":
         e = time.perf_counter()
         for batch_idx, (videos, labels) in enumerate(loader):
             videos = videos.float() / 255.0
+            classifier.forward(videos)
             print("Batch processed.")
         print(f"Epoch - {i + 1} completed in {round(time.perf_counter() - e, 2)}s.")
