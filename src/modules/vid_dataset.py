@@ -15,10 +15,10 @@ class DF_Dataset(Dataset):
         self.training = training
 
         if training:
-            with open(str(src_path / "data/train.json"), "r") as f:
+            with open(str(src_path / "data/vid_train.json"), "r") as f:
                 self.data = json.load(f)
         else:
-            with open(str(src_path / "data/test.json"), "r") as f:
+            with open(str(src_path / "data/vid_test.json"), "r") as f:
                 self.data = json.load(f)
 
     def __len__(self):
