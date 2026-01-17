@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 from torch.utils.data import Dataset, DataLoader
 import csv, cv2, os
 
@@ -32,13 +33,18 @@ class DF_Dataset(Dataset):
         return self.get_image(index)
     
     def get_image(self, index):
-        label = self.data[index]["label"]
+        label = int(self.data[index]["label"])
 
         img = cv2.imread(os.path.join(self.dataset_path, self.data[index]["path"]).replace("\\", "/"))
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        img = cv2.resize(img, (256, 256))
 
-        img_tensor = np.array(img, dtype=np.uint8)
-        return np.transpose(img_tensor, (2, 0, 1)), label
+        img_tensor = torch.from_numpy(img).float() / 255.0
+        img_tensor = img_tensor.permute(2, 0, 1)  # HWC to CHW
+        
+        label_tensor = torch.tensor(label, dtype=torch.float32)
+        
+        return img_tensor, label_tensor
     
 
 if __name__ == "__main__":
