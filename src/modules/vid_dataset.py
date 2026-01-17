@@ -132,11 +132,16 @@ if __name__ == "__main__":
 
     ds = DF_Dataset(VID_DATASET_PATH, EPOCH_SIZE, training=True)
 
-    loader = DataLoader(ds, batch_size=BATCH_SIZE, shuffle=True, num_workers=4, collate_fn=variable_length_collate)
+    import multiprocessing
+    multiprocessing.set_start_method("spawn", force=True)
 
+    import time
+
+    loader = DataLoader(ds, batch_size=BATCH_SIZE, shuffle=True, num_workers=8, collate_fn=variable_length_collate, persistent_workers=True)
     # Training Loop
     for i in range(NUM_EPOCHS):
+        e = time.perf_counter()
         for batch_idx, (videos, labels) in enumerate(loader):
             videos = videos.float() / 255.0
             print("Batch processed.")
-        print(f"Epoch - {i} completed.")
+        print(f"Epoch - {i + 1} completed in {round(time.perf_counter() - e, 2)}s.")
