@@ -53,12 +53,14 @@ if __name__ == "__main__":
 
     loader = DataLoader(ds, batch_size=BATCH_SIZE, shuffle=True, num_workers=4)
 
+    import time
     from img_classifier import IMG_Classifier
     classifier = IMG_Classifier()
 
     for i in range(NUM_EPOCHS):
+        e = time.perf_counter()
         for batch_idx, (images, labels) in enumerate(loader):
             images = images.float() / 255.0
             classifier.forward(images)
             print("Batch processed.")
-        print(f"Epoch - {i} completed.")
+        print(f"Epoch - {i + 1} completed in {round(time.perf_counter() - e, 2)}s.")
