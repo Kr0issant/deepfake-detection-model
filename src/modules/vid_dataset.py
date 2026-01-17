@@ -112,9 +112,10 @@ class DF_Dataset(Dataset):
 
 
 def variable_length_collate(batch):
-    videos, masks = zip(*batch)
+    videos, labels = zip(*batch)
     videos = [v.permute(1, 0, 2, 3) for v in videos] 
     videos_padded = pad_sequence(videos, batch_first=True, padding_value=0)
-    masks_padded = pad_sequence(masks, batch_first=True, padding_value=-1)
+    labels_padded = pad_sequence(labels, batch_first=True, padding_value=-1)
+    padding_mask = (labels_padded != -1)
     
-    return videos_padded, masks_padded
+    return videos_padded, labels_padded, padding_mask
