@@ -18,7 +18,7 @@ class NetworkProcesses:
 
             self.backbone.classifier = nn.Sequential(
                 nn.Dropout(p=0.2),
-                nn.Sequential(1280, 512),
+                nn.Linear(1280, 512),
                 nn.ReLU()
             )
         

@@ -7,7 +7,7 @@ def create_video_from_frames(frames, output_filename, fps):
         return
     height, width = frames[0].shape[:2]
     frame_size = (width, height)
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v') # type: ignore
     try:
         out = cv2.VideoWriter(output_filename, fourcc, fps, frame_size)
     except Exception as e:

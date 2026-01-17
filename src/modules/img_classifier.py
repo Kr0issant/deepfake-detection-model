@@ -4,6 +4,7 @@ from analysis_modules import *
 
 class IMG_Classifier(nn.Module):
     def __init__(self):
+        super().__init__()
         self.efficientnet = NetworkProcesses.StreamA_EfficientNetNetwork()  # 512
         self.hfri = NetworkProcesses.HFRINetwork()  # 128
         self.hfrfs = NetworkProcesses.HFRFSNetwork()  # 128
