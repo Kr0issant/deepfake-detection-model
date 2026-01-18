@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn   
-from src.modules.analysis_modules import *
+from analysis_modules import *
 
 class VID_Classifier(nn.Module):
     def __init__(self, LSTM_hidden_size, num_layers):

@@ -20,6 +20,17 @@ class FaceDetector:
         self.detection_interval = detection_interval
         self.reset()
 
+    def close(self):
+        if hasattr(self, 'detector') and self.detector:
+            try:
+                self.detector.close()
+            except Exception:
+                pass
+            self.detector = None
+
+    def __del__(self):
+        self.close()
+
     def reset(self):
         self.smoothed_center = None
         self.last_bbox = None
@@ -68,9 +79,3 @@ class FaceDetector:
             )
 
         return face_crop
-
-# Create a default instance for backward compatibility if needed, 
-# but mostly we expect instantiation. 
-# However, to avoid breaking other imports immediately, we won't export a default instance 
-# unless the user asks, but the implementation plan says to refactor module to remove global state.
-# So I will just provide the class.

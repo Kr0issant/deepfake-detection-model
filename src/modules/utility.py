@@ -19,3 +19,6 @@ def create_video_from_frames(frames, output_filename, fps):
         out.write(frame)
     out.release()
     print(f"Video saved successfully as {output_filename}")
+
+def crop_and_resize_face(frame):
+    pass
