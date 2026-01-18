@@ -1,6 +1,7 @@
 import streamlit as st
 import time
 import random
+import json
 from PIL import Image
 import inference
 
@@ -44,11 +45,11 @@ def analyze_media(file_type, file_bytes):
     if file_type == "image":
         label, confidence = inference.analyze_image(file_bytes)
         result = "REAL" if label == 0 else "FAKE"
+        return result, label, confidence
     elif file_type == "video":
-        label, confidence = inference.analyze_video(file_bytes)
-        result = "REAL" if len(label) == 0 else "FAKE"
-    
-    return result, label, confidence
+        video_analysis = inference.analyze_video(file_bytes)
+        result = "REAL" if len(video_analysis["fake_segments"]) == 0 else "FAKE"
+        return result, video_analysis, video_analysis["video_info"]["overall_confidence"]
 
 # --- Sidebar ---
 with st.sidebar:
@@ -131,19 +132,65 @@ if uploaded_file is not None:
                         st.write(f"- **Artifacts found:** High frequency noise irregularities.")
                         st.write(f"- **Confidence:** {confidence:.2%}")
                     else:
-                        # label is now time_streaks: list of (start_t, end_t, conf)
-                        st.write(f"- **Frame Analysis:** {len(label)} suspicious segments found.")
-                        if len(label) > 0:
-                            st.write("Suspicious Segments:")
-                            for start_t, end_t, conf in label:
-                                st.write(f"**{start_t} - {end_t}**")
-                                st.progress(float(conf))
-                                st.caption(f"Confidence: {conf:.2%}")
+                        # video_analysis is now a dict with video_info and fake_segments
+                        video_info = label["video_info"]
+                        fake_segments = label["fake_segments"]
+                        
+                        st.write(f"- **Video Analysis:** {len(fake_segments)} suspicious segments found.")
+                        st.write(f"- **Processed Frames:** {video_info['processed_frames']}/{video_info['total_frames']}")
+                        st.write(f"- **Video Duration:** {video_info['duration_seconds']:.1f} seconds")
+                        st.write(f"- **Frame Rate:** {video_info['fps']:.1f} fps")
+                        
+                        if len(fake_segments) > 0:
+                            st.write("**Suspicious Segments:**")
+                            for segment in fake_segments:
+                                st.markdown(f"**Segment {segment['segment_id']}:** {segment['timestamp_formatted']}")
+                                st.progress(float(segment['confidence']))
+                                st.caption(f"Confidence: {segment['confidence']:.1%} | Duration: {segment['duration_seconds']:.1f}s")
+                            
+                            # Show JSON output
+                            with st.expander("📄 View Raw JSON Output"):
+                                st.code(json.dumps(label, indent=2), language="json")
+                                
+                                # Download button for JSON
+                                json_str = json.dumps(label, indent=2)
+                                st.download_button(
+                                    label="📥 Download JSON Report",
+                                    data=json_str,
+                                    file_name="deepfake_analysis_report.json",
+                                    mime="application/json",
+                                    key="download_json_fake"
+                                )
+                            
+                            st.info("💡 **Note:** Currently analyzes the most prominent face per frame. Multiple faces in the same video may require individual analysis.")
+                        else:
+                            st.write("No suspicious segments detected.")
+                            
+                            # Show JSON output even for clean videos
+                            with st.expander("📄 View Raw JSON Output"):
+                                st.code(json.dumps(label, indent=2), language="json")
+                                
+                                # Download button for JSON
+                                json_str = json.dumps(label, indent=2)
+                                st.download_button(
+                                    label="📥 Download JSON Report",
+                                    data=json_str,
+                                    file_name="deepfake_analysis_report.json",
+                                    mime="application/json",
+                                    key="download_json_clean"
+                                )
             else:
                 st.success(msg)
                 with st.expander("See Technical Details"):
-                    st.write("- **Analysis:** Consistent noise patterns observed.")
-                    st.write("- **Integrity:** Verified.")
+                    if file_type == "image":
+                        st.write("- **Analysis:** Consistent noise patterns observed.")
+                        st.write("- **Integrity:** Verified.")
+                    else:
+                        video_info = label["video_info"]
+                        st.write("- **Analysis:** No suspicious segments detected.")
+                        st.write(f"- **Processed Frames:** {video_info['processed_frames']}/{video_info['total_frames']}")
+                        st.write(f"- **Video Duration:** {video_info['duration_seconds']:.1f} seconds")
+                        st.write(f"- **Frame Rate:** {video_info['fps']:.1f} fps")
 
 else:
     # Empty State (What shows when nothing is uploaded)

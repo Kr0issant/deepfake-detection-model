@@ -25,7 +25,7 @@ class Inference:
         self.img_classifier.eval()
 
         self.vid_classifier = VID_Classifier(256, 2).to(device)
-        self.vid_classifier.load_state_dict(torch.load(str(Path(src_path / "models/vid-weights/VID-WEIGHT.pth")), map_location=device))
+        self.vid_classifier.load_state_dict(torch.load(str(Path(src_path.parent / "VID-WEIGHT.pth")), map_location=device))
         self.vid_classifier.eval()
 
     def update_variables(self, inertia = 10, sensitivity = 0.5):
@@ -104,31 +104,42 @@ class Inference:
             fps = cap.get(cv2.CAP_PROP_FPS)
             if fps == 0: fps = 30.0 # Default fallback
             
+            total_frames_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            
             frames = []
+            frame_numbers = []  # Track which video frames we actually processed
             
             try:
+                frame_idx = 0
                 while cap.isOpened():
                     ret, frame = cap.read()
 
                     if not ret: break
 
                     try:
-                        # face = self.face_detector.extract_face(frame)
-                        # face = cv2.resize(face, (256, 256))
+                        # Extract face from frame
+                        # Note: Currently extracts the most prominent face
+                        # For multiple faces, the face detector picks the highest confidence one
                         face = self.face_extractor.extract_face(frame)
                         
                         if face is not None:
                             face_tensor = torch.tensor(face).float() / 255.0
                             frames.append(face_tensor)
+                            frame_numbers.append(frame_idx)
                     except Exception:
-                        continue
+                        pass
+                    
+                    frame_idx += 1
 
             finally:
                 cap.release()
                 cv2.destroyAllWindows()
 
             if not frames:
+                print("Warning: No faces detected in video")
                 return [], 0.0
+            
+            print(f"Processed {len(frames)} frames with faces out of {total_frames_count} total frames")
 
             # Stack frames: (T, H, W, C) -> (T, C, H, W) -> (B, T, C, H, W)
             # We will process in chunks to avoid OOM
@@ -169,17 +180,18 @@ class Inference:
             
             # Apply sigmoid to get probabilities
             # BCEWithLogitsLoss trains model where sigmoid(logit) = P(label=1)
-            # In dataset: 1=REAL, 0=FAKE (confirmed from CSV and JSON)
-            # Therefore: sigmoid(output) = P(REAL)
-            probs_real = torch.sigmoid(full_output).squeeze().detach().cpu().numpy()
+            # In VIDEO dataset: 0=REAL, 1=FAKE (different from image dataset!)
+            # Therefore: sigmoid(output) = P(FAKE)
+            probs_fake = torch.sigmoid(full_output).squeeze().detach().cpu().numpy()
             
-            if probs_real.ndim == 0:
-                probs_real = np.array([probs_real.item()])
+            if probs_fake.ndim == 0:
+                probs_fake = np.array([probs_fake.item()])
             
-            probs_fake = 1.0 - probs_real
+            probs_real = 1.0 - probs_fake
             
             # Post-process to get streaks of FAKE (high prob_fake)
-            # streaks format: (start_frame, end_frame, avg_conf_of_segment)
+            # streaks format: (start_frame_idx, end_frame_idx, avg_conf_of_segment)
+            # These are indices into our processed frames list, not original video frames
             streaks = self.post_processor.process_sequence(probs_fake)
             
             # Calculate Actual Model Confidence for Video
@@ -187,10 +199,46 @@ class Inference:
             max_probs = np.maximum(probs_real, probs_fake)
             avg_confidence = np.mean(max_probs) if len(max_probs) > 0 else 0.0
             
-            if streaks:
-                # Convert to time streaks
-                time_streaks = self.post_processor.frame_streaks_to_time_streaks(streaks, fps)
-            else:
-                time_streaks = []
+            # Create JSON-compatible output structure
+            video_analysis = {
+                "video_info": {
+                    "total_frames": total_frames_count,
+                    "processed_frames": len(frames),
+                    "fps": float(fps),
+                    "duration_seconds": total_frames_count / fps if fps > 0 else 0,
+                    "overall_confidence": float(avg_confidence)
+                },
+                "fake_segments": []
+            }
             
-            return time_streaks, avg_confidence
+            if streaks:
+                # Convert processed frame indices to actual video timestamps
+                for segment_idx, (start_idx, end_idx, conf) in enumerate(streaks):
+                    # Get the actual video frame numbers
+                    actual_start_frame = frame_numbers[start_idx] if start_idx < len(frame_numbers) else 0
+                    actual_end_frame = frame_numbers[min(end_idx, len(frame_numbers)-1)]
+                    
+                    # Convert to time
+                    start_time_sec = actual_start_frame / fps
+                    end_time_sec = actual_end_frame / fps
+                    
+                    # Format as MM:SS
+                    start_min = int(start_time_sec // 60)
+                    start_sec = int(start_time_sec % 60)
+                    end_min = int(end_time_sec // 60)
+                    end_sec = int(end_time_sec % 60)
+                    
+                    segment_data = {
+                        "segment_id": segment_idx + 1,
+                        "start_frame": int(actual_start_frame),
+                        "end_frame": int(actual_end_frame),
+                        "start_time_seconds": float(start_time_sec),
+                        "end_time_seconds": float(end_time_sec),
+                        "duration_seconds": float(end_time_sec - start_time_sec),
+                        "timestamp_formatted": f"{start_min}:{start_sec:02d} - {end_min}:{end_sec:02d}",
+                        "confidence": float(conf)
+                    }
+                    
+                    video_analysis["fake_segments"].append(segment_data)
+            
+            return video_analysis

@@ -75,9 +75,10 @@ class DF_Dataset(Dataset):
         # print("video created", random.randint(1, 100))
 
         video_tensor = self.frames_to_tensor(frames) if tensorize else frames
-        mask_tensor = torch.tensor(label_mask, dtype=torch.float32)
+        label_tensor = torch.tensor(label_mask, dtype=torch.float32)
+        mask_tensor = torch.ones(len(label_mask), dtype=torch.float32)  # All frames are valid
 
-        return video_tensor, mask_tensor
+        return video_tensor, label_tensor, mask_tensor
     
 
     # --- HELPER FUNCTIONS ---
