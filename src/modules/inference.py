@@ -56,27 +56,26 @@ class Inference:
             device = next(self.img_classifier.parameters()).device
             face_tensor = face_tensor.to(device)
             
-            # ImageNet Normalization
-            mean = torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1).to(device)
-            std = torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1).to(device)
-            face_tensor = (face_tensor - mean) / std
-
+            # No ImageNet normalization - model was trained on [0,1] range images
+            
             output = self.img_classifier.forward(face_tensor)
             
-            # Apply sigmoid to get probability of REAL (assuming model outputs Real probability)
-            # User wants FAKE to be 1 and REAL to be 0.
-            # So we invert: prob_fake = 1 - prob_real
+            # Apply sigmoid to get probability
+            # BCEWithLogitsLoss trains model where sigmoid(logit) = P(label=1)
+            # In IMAGE dataset CSV: 1=REAL, 0=FAKE
+            # Therefore: sigmoid(output) = P(REAL)
             prob_real = torch.sigmoid(output).item()
             prob_fake = 1.0 - prob_real
             
             # Determine label (0 for Real, 1 for Fake) based on sensitivity
-            # If prob_fake > sensitivity -> FAKE (1)
-            label = 1 if prob_fake > self.post_processor.sensitivity else 0
+            # Higher sensitivity (e.g., 1.0) = lower threshold = detect more fakes
+            # Lower sensitivity (e.g., 0.0) = higher threshold = detect fewer fakes
+            threshold = 1.0 - self.post_processor.sensitivity
+            label = 1 if prob_fake > threshold else 0
             
-            # Relative Confidence:
-            # If Label is FAKE, confidence is prob_fake.
-            # If Label is REAL, confidence is 1 - prob_fake (which is prob_real).
-            confidence = prob_fake if label == 1 else 1.0 - prob_fake
+            # Actual Model Confidence: Maximum probability between real and fake
+            # This shows the model's actual confidence in its prediction
+            confidence = max(prob_real, prob_fake)
             
             return label, confidence
 
@@ -136,9 +135,7 @@ class Inference:
             
             device = next(self.vid_classifier.parameters()).device
             
-            # ImageNet Normalization
-            mean = torch.tensor([0.485, 0.456, 0.406]).view(1, 1, 3, 1, 1).to(device)
-            std = torch.tensor([0.229, 0.224, 0.225]).view(1, 1, 3, 1, 1).to(device)
+            # No ImageNet normalization - model was trained on [0,1] range images
             
             chunk_size = 10 # Process 10 frames at a time
             all_outputs = []
@@ -151,9 +148,6 @@ class Inference:
                     # (T_chunk, H, W, C) -> (T_chunk, C, H, W) -> (1, T_chunk, C, H, W)
                     chunk_tensor = torch.stack(chunk_frames).permute(0, 3, 1, 2).unsqueeze(0)
                     chunk_tensor = chunk_tensor.to(device)
-                    
-                    # Apply Normalization
-                    chunk_tensor = (chunk_tensor - mean) / std
                     
                     output, hidden_state = self.vid_classifier(chunk_tensor, hidden_state)
                     
@@ -173,36 +167,30 @@ class Inference:
             # Concatenate all outputs: (1, T, 1)
             full_output = torch.cat(all_outputs, dim=1)
             
-            # Apply sigmoid to get prob_real
+            # Apply sigmoid to get probabilities
+            # BCEWithLogitsLoss trains model where sigmoid(logit) = P(label=1)
+            # In dataset: 1=REAL, 0=FAKE (confirmed from CSV and JSON)
+            # Therefore: sigmoid(output) = P(REAL)
             probs_real = torch.sigmoid(full_output).squeeze().detach().cpu().numpy()
             
             if probs_real.ndim == 0:
                 probs_real = np.array([probs_real.item()])
-                
-            # Invert to get prob_fake
+            
             probs_fake = 1.0 - probs_real
             
             # Post-process to get streaks of FAKE (high prob_fake)
             # streaks format: (start_frame, end_frame, avg_conf_of_segment)
             streaks = self.post_processor.process_sequence(probs_fake)
             
-            # Calculate Weighted Average Confidence for Video
+            # Calculate Actual Model Confidence for Video
+            # Use the average of max probabilities across all frames
+            max_probs = np.maximum(probs_real, probs_fake)
+            avg_confidence = np.mean(max_probs) if len(max_probs) > 0 else 0.0
+            
             if streaks:
-                total_weighted_conf = 0.0
-                total_frames = 0
-                
-                for start, end, conf in streaks:
-                    length = end - start + 1
-                    total_weighted_conf += conf * length
-                    total_frames += length
-                    
-                avg_confidence = total_weighted_conf / total_frames if total_frames > 0 else 0.0
-                
                 # Convert to time streaks
                 time_streaks = self.post_processor.frame_streaks_to_time_streaks(streaks, fps)
             else:
-                # If Real (no streaks), confidence is 1 - average fake probability
-                avg_confidence = 1.0 - np.mean(probs_fake) if len(probs_fake) > 0 else 0.0
                 time_streaks = []
             
             return time_streaks, avg_confidence

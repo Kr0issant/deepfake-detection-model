@@ -273,11 +273,18 @@ class VideoFaceExtractor:
         if not results.detections:
             return None
             
-        # Take the first detection
-        detection = results.detections[0]
+        # Take the detection with highest confidence
+        detection = max(results.detections, key=lambda d: d.categories[0].score)
+        
+        # Check if detection confidence is high enough
+        confidence = detection.categories[0].score
+        if confidence < 0.5:  # Reject low-confidence detections
+            return None
+        
         bbox = detection.bounding_box
         ih, iw = image.shape[:2]
         
+        # Validate bounding box coordinates
         x_min = max(0, bbox.origin_x)
         y_min = max(0, bbox.origin_y)
         x_max = min(iw, bbox.origin_x + bbox.width)
@@ -285,6 +292,15 @@ class VideoFaceExtractor:
         
         width = x_max - x_min
         height = y_max - y_min
+        
+        # Validate bounding box size (must be reasonable)
+        if width < 20 or height < 20 or width > iw * 0.95 or height > ih * 0.95:
+            return None
+        
+        # Check aspect ratio (face should be roughly square-ish, not too elongated)
+        aspect_ratio = width / height if height > 0 else 0
+        if aspect_ratio < 0.5 or aspect_ratio > 2.0:
+            return None
         
         expand_w = int(width * padding_factor)
         expand_h = int(height * padding_factor)
@@ -296,7 +312,7 @@ class VideoFaceExtractor:
         
         face = image[y_min:y_max, x_min:x_max]
         
-        if face.size == 0:
+        if face.size == 0 or face.shape[0] == 0 or face.shape[1] == 0:
             return None
             
         face_resized = cv2.resize(face, self.target_size, interpolation=cv2.INTER_AREA)

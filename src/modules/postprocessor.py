@@ -26,7 +26,12 @@ class Postprocessor:
         current_start_index = None
 
         for i, bit in enumerate(sequence):
-            bit = 1 if bit >= (1 - self.sensitivity) else 0
+            # Higher sensitivity = lower threshold = detect more fakes
+            # sensitivity 1.0 → threshold 0.0 (everything is fake)
+            # sensitivity 0.5 → threshold 0.5 (balanced)
+            # sensitivity 0.0 → threshold 1.0 (nothing is fake)
+            threshold = 1.0 - self.sensitivity
+            bit = 1 if bit >= threshold else 0
 
             if bit == 1:
                 consecutive_ones += 1
